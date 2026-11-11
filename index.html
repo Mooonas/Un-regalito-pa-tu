@@ -68,7 +68,7 @@
     <button type="submit">Entrar</button>
   </form>
 </div>
-<div class="dedicatoria" aria-live="polite">Para Mi Osita Hermosa <3</div>
+<div class="dedicatoria" aria-live="polite">Para Mi Hermosa Mujer <3</div>
 <div class="ui">
   <p>Toca la pantalla para plantar una flor</p>
   <button id="mas" type="button">Enviar más flores</button>
@@ -137,12 +137,12 @@ function iniciar() {
 document.getElementById('mas').onclick = () => enviarFlores(4);
 cv.addEventListener('pointerdown', e => { if (dentro) nuevaFlor(e.clientX, 0); });
 
-// Login: acepta mayúsculas/minúsculas y acentos; basta con "Ana Claudia"
+// Login: acepta mayúsculas/minúsculas y acentos; basta con "Minerva Juarez"
 const palabras = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().split(/\s+/);
 document.getElementById('form').addEventListener('submit', e => {
   e.preventDefault();
   const w = palabras(document.getElementById('nombre').value);
-  if (w.includes('ana') && (w.includes('claudia') || w.includes('clauidia'))) iniciar();
+  if (w.includes('minerva') && (w.includes('juarez') || w.includes('minerva'))) iniciar();
   else document.getElementById('error').textContent = 'Ese no es el nombre. Inténtalo de nuevo.';
 });
 
