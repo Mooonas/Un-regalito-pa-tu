@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#05080f">
+<title>Flores para ti</title>
+<style>
+  :root { --noche: #05080f; --lila: #b79cff; --texto: #e9e4ff; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; background: var(--noche); overflow: hidden; }
+  html { overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+  body { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100dvh; display: block; touch-action: none; }
+  .login { height: 100dvh; overflow-y: auto; }
+  .ui {
+    position: fixed; left: 0; right: 0; bottom: max(20px, env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    font-family: Georgia, "Times New Roman", serif; color: var(--texto); pointer-events: none;
+  }
+  .ui p { font-size: 0.95rem; opacity: .7; text-align: center; padding: 0 16px; }
+  button {
+    pointer-events: auto; cursor: pointer; font: inherit; font-size: 1.05rem;
+    color: var(--texto); background: rgba(183,156,255,.14);
+    border: 1px solid rgba(183,156,255,.5); border-radius: 999px; padding: 10px 26px;
+    backdrop-filter: blur(6px); transition: background .2s, transform .15s;
+  }
+  button:hover { background: rgba(183,156,255,.28); }
+  button:active { transform: scale(.96); }
+  button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+  .ui { visibility: hidden; opacity: 0; transition: opacity 1.5s; }
+  body.dentro .ui { visibility: visible; opacity: 1; }
+  .login {
+    position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 20px;
+    background: radial-gradient(ellipse at 50% 60%, rgba(40,30,80,.55), rgba(5,8,15,.94));
+    font-family: Georgia, "Times New Roman", serif; color: var(--texto);
+    transition: opacity 1.2s, visibility 1.2s;
+  }
+  body.dentro .login { opacity: 0; visibility: hidden; }
+  .login form { width: min(340px, 100%); display: grid; gap: 14px; text-align: center; }
+  .login h1 { font-size: 1.7rem; font-weight: normal; }
+  .login label { font-size: .95rem; opacity: .75; }
+  .login input {
+    font: inherit; font-size: 1.1rem; text-align: center; color: var(--texto);
+    background: rgba(255,255,255,.06); border: 1px solid rgba(183,156,255,.45);
+    border-radius: 12px; padding: 12px 14px;
+  }
+  .login input:focus-visible { outline: 2px solid var(--lila); outline-offset: 2px; }
+  .login button { pointer-events: auto; }
+  .error { min-height: 1.3em; font-size: .9rem; color: #ffb3c7; }
+  .dedicatoria {
+    position: fixed; top: max(28px, env(safe-area-inset-top)); left: 0; right: 0; text-align: center;
+    font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.4rem, 5vw, 2.2rem);
+    color: var(--texto); text-shadow: 0 0 18px rgba(183,156,255,.7);
+    opacity: 0; transition: opacity 2.5s 1s; pointer-events: none;
+  }
+  body.dentro .dedicatoria { opacity: 1; }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="Flores creciendo bajo un cielo estrellado"></canvas>
+<div class="login" id="login">
+  <form id="form" autocomplete="off">
+    <h1>Una sorpresa para ti</h1>
+    <label for="nombre">Escribe tu nombre para entrar</label>
+    <input id="nombre" type="text" placeholder="Tu nombre" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="go">
+    <div class="error" id="error" role="alert"></div>
+    <button type="submit">Entrar</button>
+  </form>
+</div>
+<div class="dedicatoria" aria-live="polite">Para Mi Osita Hermosa <3</div>
+<div class="ui">
+  <p>Toca la pantalla para plantar una flor</p>
+  <button id="mas" type="button">Enviar más flores</button>
+</div>
+
+<script>
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let W, H, DPR, ground, esc = 1, stars = [], flores = [], pasto = [], motas = [];
+const rnd = (a, b) => a + Math.random() * (b - a);
+const ease = t => t < 0 ? 0 : t > 1 ? 1 : 1 - Math.pow(1 - t, 3);
+
+function resize() {
+  DPR = Math.min(devicePixelRatio || 1, 2);
+  const cambioAncho = W !== innerWidth || !stars.length;
+  const sueloAntes = ground;
+  W = innerWidth; H = innerHeight;
+  esc = Math.min(1, Math.max(.6, W / 800));
+  cv.width = W * DPR; cv.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ground = H * 0.88;
+  if (sueloAntes) flores.forEach(f => f.y += ground - sueloAntes);
+  if (cambioAncho) stars = Array.from({ length: Math.round(W * H / 5000) }, () => ({
+    x: rnd(0, W), y: rnd(0, H * 0.85), r: rnd(.4, 1.5), f: rnd(.5, 2), p: rnd(0, 6.28)
+  }));
+  pasto = Array.from({ length: Math.round(W / 14) }, () => ({
+    x: rnd(-10, W + 10), h: rnd(30, 110), p: rnd(0, 6.28), g: rnd(0, 1), d: rnd(0, 2500)
+  }));
+}
+addEventListener('resize', resize); resize();
+
+const paletas = [
+  { petalo: [200, 170, 255], centro: '#ffe9a8' },
+  { petalo: [255, 255, 255], centro: '#ffd86b' },
+  { petalo: [255, 170, 210], centro: '#fff1b8' },
+  { petalo: [150, 190, 255], centro: '#ffe9a8' }
+];
+
+function nuevaFlor(x, retraso = 0, paleta = null) {
+  const alto = rnd(H * 0.22, H * 0.5);
+  flores.push({
+    x, y: ground + rnd(-6, 10), alto,
+    inclina: rnd(-60, 60), fase: rnd(0, 6.28),
+    t0: performance.now() + retraso,
+    tam: rnd(24, 40) * Math.min(1, W / 700 + .5),
+    pal: paleta || paletas[Math.floor(Math.random() * paletas.length)],
+    hojas: Array.from({ length: 5 }, (_, i) => ({ s: .18 + i * .13 + rnd(0, .05), lado: i % 2 ? 1 : -1, l: rnd(.8, 1.2) }))
+  });
+  if (flores.length > 70) flores.shift();
+}
+
+function enviarFlores(n = 4) {
+  for (let i = 0; i < n; i++) nuevaFlor(rnd(W * .05, W * .95), i * 350);
+}
+
+let dentro = false;
+function iniciar() {
+  dentro = true;
+  document.body.classList.add('dentro');
+  // flor inicial: tres, como en el video
+  [-1, 0, 1].forEach((k, i) => nuevaFlor(W / 2 + k * Math.min(70, W * .12), 900 + i * 700, paletas[0]));
+  flores.forEach((f, i) => { f.alto = H * (.3 + [0.02, 0.12, 0.05][i]); f.inclina = [-70, 0, 70][i]; });
+  setInterval(() => { if (!document.hidden && flores.length < 40) nuevaFlor(rnd(W * .05, W * .95)); }, 5000);
+}
+
+document.getElementById('mas').onclick = () => enviarFlores(4);
+cv.addEventListener('pointerdown', e => { if (dentro) nuevaFlor(e.clientX, 0); });
+
+// Login: acepta mayúsculas/minúsculas y acentos; basta con "Ana Claudia"
+const palabras = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().split(/\s+/);
+document.getElementById('form').addEventListener('submit', e => {
+  e.preventDefault();
+  const w = palabras(document.getElementById('nombre').value);
+  if (w.includes('ana') && (w.includes('claudia') || w.includes('clauidia'))) iniciar();
+  else document.getElementById('error').textContent = 'Ese no es el nombre. Inténtalo de nuevo.';
+});
+
+// viento: ráfaga lenta + oscilación
+const viento = (t, x) => reduce ? 0 : Math.sin(t * .0007 + x * .004) * .6 + Math.sin(t * .0019 + x * .01) * .4;
+
+function punto(f, s, t, g) {
+  const w = viento(t, f.x) * 26 * g;
+  const cx = f.x + f.inclina * .25 * g + w * .3, cy = f.y - f.alto * g * .55;
+  const tx = f.x + f.inclina * g + w, ty = f.y - f.alto * g;
+  const u = 1 - s;
+  return {
+    x: u * u * f.x + 2 * u * s * cx + s * s * tx,
+    y: u * u * f.y + 2 * u * s * cy + s * s * ty,
+    a: Math.atan2(2 * u * (cy - f.y) + 2 * s * (ty - cy), 2 * u * (cx - f.x) + 2 * s * (tx - cx))
+  };
+}
+
+function hoja(x, y, ang, len, ancho) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  const g = ctx.createLinearGradient(0, 0, len, 0);
+  g.addColorStop(0, '#0f6b3c'); g.addColorStop(1, '#2fd68a');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(len * .5, -ancho, len, 0);
+  ctx.quadraticCurveTo(len * .5, ancho, 0, 0);
+  ctx.fill(); ctx.restore();
+}
+
+function dibujarFlor(f, t) {
+  const el = (t - f.t0) / 1000;
+  if (el < 0) return;
+  const g = ease(el / 3.2);          // crecimiento del tallo
+  const b = ease((el - 2.4) / 2.2);  // florecer
+  if (g <= 0) return;
+
+  // tallo
+  ctx.lineCap = 'round';
+  const grad = ctx.createLinearGradient(0, f.y, 0, f.y - f.alto);
+  grad.addColorStop(0, '#9a4a14'); grad.addColorStop(1, '#f0a040');
+  ctx.strokeStyle = grad; ctx.lineWidth = 3.2;
+  ctx.beginPath();
+  for (let i = 0; i <= 24; i++) {
+    const p = punto(f, i / 24, t, g);
+    i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
+  }
+  ctx.stroke();
+
+  // hojas
+  f.hojas.forEach(h => {
+    const hg = ease((g - h.s) / .3);
+    if (hg <= 0) return;
+    const p = punto(f, h.s, t, g);
+    const bal = viento(t, f.x + h.s * 90) * .12;
+    hoja(p.x, p.y, p.a + h.lado * (1.05 - hg * .35) + bal, 46 * h.l * hg, 13 * hg);
+  });
+
+  // flor
+  const c = punto(f, 1, t, g);
+  if (b <= 0) {
+    ctx.fillStyle = `rgb(${f.pal.petalo})`;
+    ctx.beginPath(); ctx.ellipse(c.x, c.y, 4 * g, 7 * g, c.a + Math.PI / 2, 0, 6.28); ctx.fill();
+    return;
+  }
+  const R = f.tam * b, [r, gg, bb] = f.pal.petalo;
+  const halo = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, R * 2.4);
+  halo.addColorStop(0, `rgba(${r},${gg},${bb},.35)`); halo.addColorStop(1, `rgba(${r},${gg},${bb},0)`);
+  ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(c.x, c.y, R * 2.4, 0, 6.28); ctx.fill();
+
+  ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(c.a + Math.PI / 2); ctx.scale(1, .62);
+  for (let i = 0; i < 5; i++) {
+    ctx.save();
+    ctx.rotate(i / 5 * 6.28 + Math.sin(t * .001 + f.fase) * .04);
+    const pg = ctx.createLinearGradient(0, 0, 0, -R * 1.2);
+    pg.addColorStop(0, `rgb(${r * .75 | 0},${gg * .7 | 0},${bb * .95 | 0})`);
+    pg.addColorStop(1, `rgb(${r},${gg},${bb})`);
+    ctx.fillStyle = pg;
+    ctx.beginPath(); ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(-R * .75, -R * .3, -R * .6, -R * 1.25, 0, -R * 1.1);
+    ctx.bezierCurveTo(R * .6, -R * 1.25, R * .75, -R * .3, 0, 0);
+    ctx.fill(); ctx.restore();
+  }
+  ctx.fillStyle = f.pal.centro; ctx.shadowColor = f.pal.centro; ctx.shadowBlur = 12;
+  ctx.beginPath(); ctx.arc(0, 0, R * .24, 0, 6.28); ctx.fill();
+  ctx.restore(); ctx.shadowBlur = 0;
+
+  // polen
+  if (b > .8 && !reduce && Math.random() < .08 && motas.length < 160)
+    motas.push({ x: c.x, y: c.y, vx: rnd(-.2, .2), vy: rnd(-.6, -.2), v: 1, c: Math.random() < .5 ? '#ffe36b' : '#ff9ccf' });
+}
+
+function dibujarPasto(t) {
+  pasto.forEach(p => {
+    const g = ease((t - p.d) / 2500);
+    if (g <= 0) return;
+    const w = viento(t, p.x) * 22 + Math.sin(t * .002 + p.p) * 3;
+    const h = p.h * g;
+    ctx.strokeStyle = `hsl(${140 + p.g * 20},${55 + p.g * 20}%,${14 + p.g * 18}%)`;
+    ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(p.x, ground + 14);
+    ctx.quadraticCurveTo(p.x + w * .3, ground - h * .6, p.x + w * (h / 70), ground - h);
+    ctx.stroke();
+  });
+}
+
+function frame(t) {
+  const cielo = ctx.createLinearGradient(0, 0, 0, H);
+  cielo.addColorStop(0, '#04060d'); cielo.addColorStop(1, '#0b1626');
+  ctx.fillStyle = cielo; ctx.fillRect(0, 0, W, H);
+
+  stars.forEach(s => {
+    const a = reduce ? .7 : .35 + .65 * Math.abs(Math.sin(t * .001 * s.f + s.p));
+    ctx.fillStyle = `rgba(255,255,255,${a})`;
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 6.28); ctx.fill();
+  });
+
+  const suelo = ctx.createLinearGradient(0, ground - 30, 0, H);
+  suelo.addColorStop(0, 'rgba(10,40,25,0)'); suelo.addColorStop(1, '#06140d');
+  ctx.fillStyle = suelo; ctx.fillRect(0, ground - 30, W, H - ground + 30);
+
+  dibujarPasto(t);
+  flores.slice().sort((a, b) => a.y - b.y).forEach(f => dibujarFlor(f, t));
+
+  for (let i = motas.length - 1; i >= 0; i--) {
+    const m = motas[i];
+    m.x += m.vx + viento(t, m.x) * .5; m.y += m.vy; m.v -= .004;
+    if (m.v <= 0) { motas.splice(i, 1); continue; }
+    ctx.globalAlpha = m.v; ctx.fillStyle = m.c;
+    ctx.beginPath(); ctx.arc(m.x, m.y, 2, 0, 6.28); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
